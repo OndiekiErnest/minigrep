@@ -1,8 +1,9 @@
-use std::{error::Error, fs};
+use std::{env, error::Error, fs};
 
 pub struct Config {
     pub query: String,
     pub file_path: String,
+    pub ignore_case: bool,
 }
 
 impl Config {
@@ -10,9 +11,15 @@ impl Config {
         if args.len() < 3 {
             return Err(String::from("Not enough arguments"));
         }
+        let query = args[1].clone();
+        let file_path = args[2].clone();
+
+        // read environment variable ($Env:IGNORE_CASE=1; cargo run -- to poem.txt)
+        let ignore_case = env::var("IGNORE_CASE").is_ok();
         Ok(Config {
-            query: args[1].clone(),
-            file_path: args[2].clone(),
+            query,
+            file_path,
+            ignore_case,
         })
     }
 }
@@ -29,10 +36,29 @@ fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     results
 }
 
+fn isearch<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+    // convert query to lowercase
+    let query = query.to_lowercase();
+    // for storing matching lines
+    let mut results = Vec::new();
+
+    for line in contents.lines() {
+        if line.to_lowercase().contains(&query) {
+            results.push(line);
+        }
+    }
+    results
+}
+
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.file_path)?;
 
-    for line in search(&config.query, &contents) {
+    let results = if config.ignore_case {
+        isearch(&config.query, &contents)
+    } else {
+        search(&config.query, &contents)
+    };
+    for line in results {
         println!("{line}");
     }
     Ok(())
@@ -51,5 +77,16 @@ safe, fast, productive.
 Pick three.";
 
         assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+    }
+
+    #[test]
+    fn search_case_insensitive() {
+        let query = "DUCT";
+        let contents = "\
+Rust:
+safe, fast, productive.
+Pick three.";
+
+        assert_eq!(vec!["safe, fast, productive."], isearch(query, contents));
     }
 }
