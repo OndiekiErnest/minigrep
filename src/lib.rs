@@ -7,12 +7,15 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn build(args: &[String]) -> Result<Config, String> {
-        if args.len() < 3 {
-            return Err(String::from("Not enough arguments"));
-        }
-        let query = args[1].clone();
-        let file_path = args[2].clone();
+    pub fn build(mut args: impl Iterator<Item = String>) -> Result<Config, String> {
+        args.next();
+
+        let Some(query) = args.next() else {
+            return Err(String::from("Didn't specify the query string"));
+        };
+        let Some(file_path) = args.next() else {
+            return Err(String::from("Didn't specify the file path"));
+        };
 
         // read environment variable ($Env:IGNORE_CASE=1; cargo run -- to poem.txt)
         let ignore_case = env::var("IGNORE_CASE").is_ok();
@@ -25,29 +28,20 @@ impl Config {
 }
 
 fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    // for storing matching lines
-    let mut results = Vec::new();
-
-    for line in contents.lines() {
-        if line.contains(query) {
-            results.push(line);
-        }
-    }
-    results
+    contents
+        .lines()
+        .filter(|line| line.contains(query))
+        .collect()
 }
 
 fn isearch<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
     // convert query to lowercase
     let query = query.to_lowercase();
-    // for storing matching lines
-    let mut results = Vec::new();
 
-    for line in contents.lines() {
-        if line.to_lowercase().contains(&query) {
-            results.push(line);
-        }
-    }
-    results
+    contents
+        .lines()
+        .filter(|line| line.to_lowercase().contains(&query))
+        .collect()
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
