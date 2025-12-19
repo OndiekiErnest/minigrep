@@ -27,34 +27,31 @@ impl Config {
     }
 }
 
-fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
-    contents
-        .lines()
-        .filter(|line| line.contains(query))
-        .collect()
+fn search<'a>(query: &'a str, contents: &'a str) -> impl Iterator<Item = &'a str> {
+    contents.lines().filter(move |line| line.contains(query))
 }
 
-fn isearch<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+fn isearch<'a>(query: &'a str, contents: &'a str) -> impl Iterator<Item = &'a str> {
     // convert query to lowercase
     let query = query.to_lowercase();
 
     contents
         .lines()
-        .filter(|line| line.to_lowercase().contains(&query))
-        .collect()
+        .filter(move |line| line.to_lowercase().contains(&query))
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let contents = fs::read_to_string(config.file_path)?;
 
-    let results = if config.ignore_case {
-        isearch(&config.query, &contents)
+    if config.ignore_case {
+        for line in isearch(&config.query, &contents) {
+            println!("{line}");
+        }
     } else {
-        search(&config.query, &contents)
+        for line in search(&config.query, &contents) {
+            println!("{line}");
+        }
     };
-    for line in results {
-        println!("{line}");
-    }
     Ok(())
 }
 
@@ -63,14 +60,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn one_result() {
+    fn search_case_sensitive() {
         let query = "duct";
         let contents = "\
 Rust:
 safe, fast, productive.
 Pick three.";
 
-        assert_eq!(vec!["safe, fast, productive."], search(query, contents));
+        let results: Vec<&str> = search(query, contents).collect();
+        assert_eq!(vec!["safe, fast, productive."], results);
     }
 
     #[test]
@@ -81,6 +79,7 @@ Rust:
 safe, fast, productive.
 Pick three.";
 
-        assert_eq!(vec!["safe, fast, productive."], isearch(query, contents));
+        let results: Vec<&str> = isearch(query, contents).collect();
+        assert_eq!(vec!["safe, fast, productive."], results);
     }
 }
